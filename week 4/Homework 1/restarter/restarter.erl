@@ -25,7 +25,7 @@
 % 
 %
 % Example usage:
-% cd("C:/repos/erlang_intro/week 4/Homework 1/restarter").
+% cd("C:/repos/erlang_academy/week 4/Homework 1/restarter").
 % Pid = restarter:start_link({counter, loop, [0]}).
 % restarter:status(Pid).
 % restarter:stop(Pid).
