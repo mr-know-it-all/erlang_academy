@@ -50,6 +50,52 @@
 % 1 <= nums[i] <= n
 % 
 
--spec minimum_distance(Nums :: [integer()]) -> integer().
+% SOLUTION 1:
+% Notes: Not optimal, but works with the constraints
+
+minimum_distance(Nums) when length(Nums) < 3 -> -1;
 minimum_distance(Nums) ->
-.
+    NumsTup = list_to_tuple(Nums),
+    Len = tuple_size(NumsTup),
+    Map = #{},
+    Infinity = 1000000000,
+    
+    Result = compute(1, Len, NumsTup, Map, Infinity),
+    
+    if Result == Infinity -> -1;
+       true -> Result
+    end.
+
+compute(I, Len, Nums, Map, Min) when I =< Len ->
+    % Val is element at current index in Nums tuple
+    Val = element(I, Nums),
+    
+    NewMin = case maps:find(Val, Map) of
+        % current Val was seen before, it will be A
+        {ok, A} -> 
+            % B will be the current index of Val
+            B = I,
+            % we continue searching for the third instance of Val
+            find_C(I + 1, Len, Val, Nums, A, B, Min);
+        error -> 
+            Min
+    end,
+    
+    % We add the current Index for Val
+    % It can later become A for the next instance of Val
+    compute(I + 1, Len, Nums, Map#{Val => I}, NewMin);
+compute(_I, _Len, _Nums, _Map, Min) ->
+    Min.
+
+find_C(J, Len, Target, Nums, A, B, Min) when J =< Len ->
+    case element(J, Nums) of
+        % Target equals to our Val
+        Target -> 
+            C = J,
+            Dist = (B - A) + (C - B) + (C - A),
+            erlang:min(Min, Dist);
+        _ -> 
+            find_C(J + 1, Len, Target, Nums, A, B, Min)
+    end;
+find_C(_J, _Len, _Target, _Nums, _A, _B, Min) ->
+    Min.
