@@ -37,5 +37,3 @@ compute(N, M) ->
 
 bitwise_complement(N) -> 
     compute(N, 1).
-
-
