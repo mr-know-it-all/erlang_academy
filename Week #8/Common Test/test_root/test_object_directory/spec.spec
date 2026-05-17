@@ -1,4 +1,4 @@
-{alias, state, "./demo/"}.
+{alias, state, "./state/"}.
 {alias, meeting, "./meeting/"}.
 {logdir, "./logs/"}.
  
