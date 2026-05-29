@@ -3,7 +3,9 @@
 
 %% 1. Start the server and create a 'Listen' socket
 start(Port) ->
-    {ok, LSock} = gen_tcp:listen(Port, [binary, {packet, 0}, {active, false}, {reuseaddr, true}]),
+    {ok, LSock} = gen_tcp:listen(Port, [
+        binary, {packet, 0}, {active, false}, {reuseaddr, true}
+    ]),
     io:format("Server listening on port ~p~n", [Port]),
     spawn(?MODULE, acceptor, [LSock]).
 

@@ -59,7 +59,7 @@
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
-         code_change/3, terminate/2]).
+        code_change/3, terminate/2]).
 
 %% Macros
 -define(SOCK(Msg), {tcp, _Port, Msg}). % Helper for matching TCP data
@@ -74,9 +74,9 @@ start_link(Socket) ->
     gen_server:start_link(?MODULE, Socket, []).
 
 init(Socket) ->
-    %% Seed random for stat rolling
-    <<A:32, B:32, C:32>> = crypto:rand_bytes(12),
-    random:seed({A,B,C}),
+    %% Use the modern crypto and rand modules to seed securely
+    <<A:32, B:32, C:32>> = crypto:strong_rand_bytes(12),
+    rand:seed(exsp, {A, B, C}),
     %% Cast to self to perform blocking 'accept' outside of init
     gen_server:cast(self(), accept),
     {ok, #state{socket=Socket}}.
@@ -88,30 +88,41 @@ init(Socket) ->
 %% Phase 1: Wait for a user to connect to the listening socket
 handle_cast(accept, S = #state{socket=ListenSocket}) ->
     {ok, AcceptSocket} = gen_tcp:accept(ListenSocket),
-    %% Boot up a new listener process to handle the next person
     sockserv_sup:start_socket(),
+    
+    %% Activate the newly accepted socket
+    ok = inet:setopts(AcceptSocket, [{active, once}]),
+    
     send(AcceptSocket, "What's your character's name?", []),
     {noreply, S#state{socket=AcceptSocket, next=name}};
 
-%% Phase 2: Roll random RPG stats and present them
+%% Phase 2: Roll random RPG stats locally and present them
 handle_cast(roll_stats, S = #state{socket=Socket}) ->
-    Roll = pq_stats:initial_roll(),
+    %% Mock the pq_stats:initial_roll() output with local random values (3d6 roll)
+    Roll = [
+        {"Charisma",     rand:uniform(16) + 2},
+        {"Constitution", rand:uniform(16) + 2},
+        {"Dexterity",    rand:uniform(16) + 2},
+        {"Intelligence", rand:uniform(16) + 2},
+        {"Strength",     rand:uniform(16) + 2},
+        {"Wisdom",       rand:uniform(16) + 2}
+    ],
     send(Socket,
-         "Stats for your character:~n"
-         "  Charisma: ~B~n"
-         "  Constitution: ~B~n"
-         "  Dexterity: ~B~n"
-         "  Intelligence: ~B~n"
-         "  Strength: ~B~n"
-         "  Wisdom: ~B~n~n"
-         "Do you agree to these? y/n~n",
-         [Points || {_Name, Points} <- lists:sort(Roll)]),
+        "Stats for your character:~n"
+        "  Charisma: ~B~n"
+        "  Constitution: ~B~n"
+        "  Dexterity: ~B~n"
+        "  Intelligence: ~B~n"
+        "  Strength: ~B~n"
+        "  Wisdom: ~B~n~n"
+        "Do you agree to these? y/n~n",
+        [Points || {_Name, Points} <- lists:sort(Roll)]),
     {noreply, S#state{next={stats, Roll}}};
 
 %% Phase 3: Finalize character and start the engine
 handle_cast(stats_accepted, S = #state{name=Name, next={stats, Stats}}) ->
     processquest:start_player(Name, [{stats,Stats},{time,?TIME},
-                                     {lvlexp, ?EXP}]),
+                                    {lvlexp, ?EXP}]),
     %% Hook this process up to the engine's event stream
     processquest:subscribe(Name, sockserv_pq_events, self()),
     {noreply, S#state{next=playing}};
@@ -119,9 +130,9 @@ handle_cast(stats_accepted, S = #state{name=Name, next={stats, Stats}}) ->
 %% Phase 4: Forward engine events to the player's screen
 handle_cast(Event, S = #state{name=N, socket=Sock}) when element(1, Event) =:= N ->
     [case E of
-       {wait, Time} -> timer:sleep(Time);
-       IoList -> send(Sock, IoList, [])
-     end || E <- sockserv_trans:to_str(Event)], 
+    {wait, Time} -> timer:sleep(Time);
+    IoList -> send(Sock, IoList, [])
+    end || E <- sockserv_trans:to_str(Event)], 
     {noreply, S}.
 
 %% ==========================================================================
@@ -163,7 +174,7 @@ handle_info(E, S) ->
     {noreply, S}.
 
 %% ==========================================================================
-%% Helpers & Cleanup
+%%% Helpers & Cleanup
 %% ==========================================================================
 
 code_change(_OldVsn, State, _Extra) -> {ok, State}.

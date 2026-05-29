@@ -47,3 +47,4 @@ compute(B, B, _Len) -> true;
 compute(<<H, T/binary>>, Goal, Len) ->
     NewBinary = <<T/binary, H>>,
     compute(NewBinary, Goal, Len - 1).
+
